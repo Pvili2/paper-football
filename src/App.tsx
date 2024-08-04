@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import FieldPreview from "./FieldPreview";
@@ -65,6 +65,38 @@ const PaperSoccerGame: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [currentPlayer, gameMode, gameOver, ballPosition]);
+
+  const [windowSize, setWindowSize] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const calculateCellSize = useCallback(() => {
+    const maxWidth = windowSize.width * 0.9;
+    const maxHeight = windowSize.height * 0.6;
+    const cellSizeByWidth = maxWidth / (cols + 2);
+    const cellSizeByHeight = maxHeight / (rows + 2);
+    return Math.min(cellSizeByWidth, cellSizeByHeight, 40);
+  }, [windowSize, rows, cols]);
+
+  useEffect(() => {
+    const newCellSize = calculateCellSize();
+    setCellSize(newCellSize);
+    setPointSize(newCellSize * 0.3);
+    setPadding(newCellSize * 0.5);
+  }, [windowSize, calculateCellSize]);
 
   const initializeGame = (): void => {
     initializeLines();
@@ -252,19 +284,33 @@ const PaperSoccerGame: React.FC = () => {
         flexDirection: "column",
         alignItems: "center",
         gap: "10px",
+        width: "100%",
+        maxWidth: "400px",
       }}
     >
       <h2
-        style={{ color: "#ffffff", textShadow: "2px 2px 4px rgba(0,0,0,0.5)" }}
+        style={{
+          color: "#ffffff",
+          textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
+          fontSize: windowSize.width < 600 ? "1.5rem" : "2rem",
+          textAlign: "center",
+        }}
       >
         Select Game Mode
       </h2>
-      <div style={{ display: "flex", gap: "10px" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          flexWrap: "wrap",
+          justifyContent: "center",
+        }}
+      >
         <button
           onClick={() => setGameMode("player")}
           style={{
             padding: "10px 20px",
-            fontSize: "16px",
+            fontSize: windowSize.width < 600 ? "14px" : "16px",
             fontWeight: "bold",
             color: "#ffffff",
             backgroundColor:
@@ -282,7 +328,7 @@ const PaperSoccerGame: React.FC = () => {
           onClick={() => setGameMode("ai")}
           style={{
             padding: "10px 20px",
-            fontSize: "16px",
+            fontSize: windowSize.width < 600 ? "14px" : "16px",
             fontWeight: "bold",
             color: "#ffffff",
             backgroundColor:
@@ -303,6 +349,7 @@ const PaperSoccerGame: React.FC = () => {
             style={{
               color: "#ffffff",
               textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
+              fontSize: windowSize.width < 600 ? "1.2rem" : "1.5rem",
             }}
           >
             AI Difficulty
@@ -314,7 +361,7 @@ const PaperSoccerGame: React.FC = () => {
             }
             style={{
               padding: "5px 10px",
-              fontSize: "14px",
+              fontSize: windowSize.width < 600 ? "12px" : "14px",
               backgroundColor: "rgba(255, 255, 255, 0.2)",
               color: "#ffffff",
               border: "none",
@@ -345,14 +392,20 @@ const PaperSoccerGame: React.FC = () => {
         boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
       }}
     >
-      <div style={{ fontSize: "24px", fontWeight: "bold", color: "#ffffff" }}>
+      <div
+        style={{
+          fontSize: windowSize.width < 600 ? "20px" : "24px",
+          fontWeight: "bold",
+          color: "#ffffff",
+        }}
+      >
         {scores.player1} - {scores.player2}
       </div>
       <button
         onClick={startNewGame}
         style={{
           padding: "10px 20px",
-          fontSize: "16px",
+          fontSize: windowSize.width < 600 ? "14px" : "16px",
           fontWeight: "bold",
           color: "#ffffff",
           backgroundColor: "#e74c3c",
@@ -637,10 +690,12 @@ const PaperSoccerGame: React.FC = () => {
   };
 
   const renderResizeButtons = () => {
+    if (windowSize.width < 1200) return null; // Hide resize buttons on smaller screens
+
     const prevIndex =
       (currentSizeIndex - 1 + fieldSizes.length) % fieldSizes.length;
     const nextIndex = (currentSizeIndex + 1) % fieldSizes.length;
-    const previewSize = 300; // Növeltük az előnézet méretét
+    const previewSize = Math.min(300, windowSize.width * 0.2);
 
     return (
       <>
@@ -706,6 +761,9 @@ const PaperSoccerGame: React.FC = () => {
           position: "relative",
           display: "flex",
           justifyContent: "center",
+          width: "100%",
+          maxWidth: `${cols * cellSize + 2 * padding}px`,
+          margin: "0 auto",
         }}
       >
         {renderResizeButtons()}
@@ -713,7 +771,8 @@ const PaperSoccerGame: React.FC = () => {
           className="game-field"
           style={{
             position: "relative",
-            width: `${cols * cellSize + 2 * padding}px`,
+            width: "100%",
+            maxWidth: `${cols * cellSize + 2 * padding}px`,
             height: `${rows * cellSize + 2 * padding}px`,
             background: "rgba(0, 0, 0, 0.5)",
             borderRadius: "20px",
@@ -741,13 +800,14 @@ const PaperSoccerGame: React.FC = () => {
             exit={{ opacity: 0, y: 50 }}
             style={{
               marginTop: "20px",
-              fontSize: "32px",
+              fontSize: windowSize.width < 600 ? "24px" : "32px",
               fontWeight: "bold",
               color: winner === 1 ? "#3498db" : "#2ecc71",
               textShadow: "2px 2px 4px rgba(0,0,0,0.5)",
               background: "rgba(0, 0, 0, 0.5)",
               padding: "10px 20px",
               borderRadius: "10px",
+              textAlign: "center",
             }}
           >
             Játék vége! {winner === 1 ? "Kék" : "Zöld"} játékos nyert!
@@ -758,11 +818,12 @@ const PaperSoccerGame: React.FC = () => {
         <motion.div
           style={{
             marginTop: "20px",
-            fontSize: "24px",
+            fontSize: windowSize.width < 600 ? "18px" : "24px",
             textShadow: "1px 1px 2px rgba(0,0,0,0.5)",
             background: "rgba(0, 0, 0, 0.5)",
             padding: "10px 20px",
             borderRadius: "10px",
+            textAlign: "center",
           }}
           animate={{ scale: [1, 1.05, 1] }}
           transition={{ duration: 1, repeat: Infinity }}
