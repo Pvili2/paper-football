@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import FieldPreview from "./FieldPreview";
+import Rules from "./Rules";
 
 interface Position {
   x: number;
@@ -39,6 +40,7 @@ const PaperSoccerGame: React.FC = () => {
   const [currentPlayer, setCurrentPlayer] = useState<number>(1);
   const [gameOver, setGameOver] = useState<boolean>(false);
   const [winner, setWinner] = useState<number | null>(null);
+  const [showRules, setShowRules] = useState(false);
   const [visitedPoints, setVisitedPoints] = useState<Record<string, boolean>>(
     {}
   );
@@ -374,6 +376,24 @@ const PaperSoccerGame: React.FC = () => {
           </select>
         </div>
       )}
+      <button
+        onClick={() => setShowRules(true)}
+        style={{
+          padding: "10px 20px",
+          fontSize: windowSize.width < 600 ? "14px" : "16px",
+          fontWeight: "bold",
+          color: "#ffffff",
+          backgroundColor: "#9b59b6",
+          border: "none",
+          borderRadius: "5px",
+          cursor: "pointer",
+          transition: "all 0.3s ease",
+          boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+          marginTop: "10px",
+        }}
+      >
+        Játékszabályok
+      </button>
     </div>
   );
 
@@ -844,6 +864,7 @@ const PaperSoccerGame: React.FC = () => {
           </span>
         </motion.div>
       )}
+      {showRules && <Rules onClose={() => setShowRules(false)} />}
     </div>
   );
 };
