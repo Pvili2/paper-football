@@ -41,6 +41,7 @@ const PaperSoccerGame: React.FC = () => {
   const [gameOver, setGameOver] = useState<boolean>(false);
   const [winner, setWinner] = useState<number | null>(null);
   const [showRules, setShowRules] = useState(false);
+  const [isAvaibleMoves, setIsAvaibleMoves] = useState<boolean>(true);
   const [visitedPoints, setVisitedPoints] = useState<Record<string, boolean>>(
     {}
   );
@@ -68,6 +69,10 @@ const PaperSoccerGame: React.FC = () => {
     }
   }, [currentPlayer, gameMode, gameOver, ballPosition]);
 
+  useEffect(() => {
+    getAvailableMoves2(ballPosition.x, ballPosition.y).length === 0 &&
+      endGame(currentPlayer === 2 ? 1 : 2);
+  }, [ballPosition]);
   const [windowSize, setWindowSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -160,47 +165,44 @@ const PaperSoccerGame: React.FC = () => {
       setLines(newLines);
       const newBallPosition: Position = { x, y };
       setBallPosition(newBallPosition);
-
+      getAvailableMoves2(newBallPosition.x, newBallPosition.y);
       const pointKey = `${x}-${y}`;
       const newVisitedPoints = { ...visitedPoints, [pointKey]: true };
       setVisitedPoints(newVisitedPoints);
 
-      if (checkWin(x, y)) {
-        setGameOver(true);
-        setWinner(currentPlayer);
-        triggerConfetti();
-        if (
-          currentPlayer === 2 &&
-          x === 0 &&
-          y >= Math.floor(rows / 3) &&
-          y <= Math.floor((2 * rows) / 3)
-        ) {
-          setScores((prev) => ({ ...prev, player2: prev.player2 + 1 }));
-          return true;
-        }
-        if (
-          currentPlayer === 1 &&
-          x === cols &&
-          y >= Math.floor(rows / 3) &&
-          y <= Math.floor((2 * rows) / 3)
-        ) {
-          setScores((prev) => ({ ...prev, player1: prev.player1 + 1 }));
-          return true;
-        }
+      const scoringPlayer = checkWin(x, y);
+      if (scoringPlayer !== 0) {
+        endGame(scoringPlayer);
       } else {
         const playerGetsExtraTurn = visitedPoints[pointKey];
         if (!playerGetsExtraTurn) {
           switchPlayer();
-        } else {
+        }
+
+        // Check if the next player has any valid moves
+        if (!isAvaibleMoves) {
+          // If no valid moves, the current player wins
+          endGame(currentPlayer);
+        } else if (gameMode === "ai" && currentPlayer === 2) {
           // Force a re-render to trigger the AI move effect if it's AI's turn
-          if (gameMode === "ai" && currentPlayer === 2) {
-            setTimeout(() => setBallPosition({ ...newBallPosition }), 0);
-          }
+          setTimeout(() => setBallPosition({ ...newBallPosition }), 0);
         }
       }
+
       return true;
     }
     return false;
+  };
+
+  const endGame = (winner: number) => {
+    setGameOver(true);
+    setWinner(winner);
+    triggerConfetti();
+    setScores((prev) => ({
+      ...prev,
+      [winner === 1 ? "player1" : "player2"]:
+        prev[winner === 1 ? "player1" : "player2"] + 1,
+    }));
   };
 
   const switchPlayer = (): void => {
@@ -255,6 +257,23 @@ const PaperSoccerGame: React.FC = () => {
         }
       }
     }
+    return moves;
+  };
+
+  const getAvailableMoves2 = (x: number, y: number): Position[] => {
+    const moves: Position[] = [];
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (dx === 0 && dy === 0) continue;
+        const newX = ballPosition.x + dx;
+        const newY = ballPosition.y + dy;
+        if (isValidMove(newX, newY)) {
+          moves.push({ x: newX, y: newY });
+        }
+      }
+    }
+
+    console.log(moves);
     return moves;
   };
 
@@ -465,48 +484,37 @@ const PaperSoccerGame: React.FC = () => {
 
     // Check if the move is along the edge of the field
     const isEdgeMove =
-      ((x === 0 || x === cols) && y >= 0 && y <= rows) ||
-      ((y === 0 || y === rows) && x >= 0 && x <= cols);
+      (x === 0 || x === cols || y === 0 || y === rows) &&
+      !(
+        (x === 0 || x === cols) &&
+        y > Math.floor(rows / 3) &&
+        y < Math.floor((2 * rows) / 3)
+      );
 
-    // The move is valid if it's not an existing line and either it's not on the edge or it's within the goal area
-    return (
-      !lineExists &&
-      (!isEdgeMove ||
-        ((x === 0 || x === cols) &&
-          y > Math.floor(rows / 3) &&
-          y < Math.floor((2 * rows) / 3)))
-    );
+    // The move is valid if it's not an existing line and not on the edge (except for goal areas)
+    return !lineExists && !isEdgeMove;
   };
 
-  const checkWin = (x: number, y: number): boolean => {
-    // Bal oldali kapu (2. játékos)
+  const checkWin = (x: number, y: number): number => {
+    // Left goal (Player 2 scores, including own goal by Player 1)
+    if (x === 0 && y >= Math.floor(rows / 3) && y <= Math.floor((2 * rows) / 3))
+      return 2;
+
+    // Right goal (Player 1 scores, including own goal by Player 2)
     if (
-      currentPlayer === 2 &&
-      x === 0 &&
-      y >= Math.floor(rows / 3) &&
-      y <= Math.floor((2 * rows) / 3)
-    )
-      return true;
-    // Jobb oldali kapu (1. játékos)
-    if (
-      currentPlayer === 1 &&
       x === cols &&
       y >= Math.floor(rows / 3) &&
       y <= Math.floor((2 * rows) / 3)
     )
-      return true;
+      return 1;
 
-    // Kapu alján lévő vonal érintése
-    if (
-      currentPlayer === 1 &&
-      x === cols - 1 &&
-      y === Math.floor((2 * rows) / 3) + 1
-    )
-      return true;
-    if (currentPlayer === 2 && x === 1 && y === Math.floor((2 * rows) / 3) + 1)
-      return true;
+    // Bottom line of the left goal
+    if (x === 1 && y === Math.floor((2 * rows) / 3) + 1) return 2;
 
-    return false;
+    // Bottom line of the right goal
+    if (x === cols - 1 && y === Math.floor((2 * rows) / 3) + 1) return 1;
+
+    return 0; // No goal
   };
 
   const renderBackground = () => (
